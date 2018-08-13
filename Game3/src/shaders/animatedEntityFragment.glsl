@@ -1,0 +1,104 @@
+#version 400 core
+
+const int maxLights=4;
+
+in vec2 pass_textureCoordinates;
+in vec3 surfaceNormal;
+in vec3 toLightVector[maxLights];
+in vec3 toCameraVector;
+in float visibility;
+in vec4 shadowCoords;
+in float isUnderWater;
+
+layout (location = 0) out vec4 out_Color;
+layout (location = 1) out vec4 out_BrightColor;
+
+uniform sampler2D modelTexture;
+uniform sampler2D specularMap;
+uniform float usesSpecularMap;
+uniform vec3 lightColour[maxLights];
+uniform float shineDamper;
+uniform float reflectivity;
+uniform vec3 skyColor;
+uniform vec3 attenuation[maxLights];
+uniform sampler2D shadowMap;
+uniform bool celShading;
+uniform float mapSize;
+uniform bool underwater;
+uniform vec3 underwaterColor;
+
+const float levels = 4.0;
+const int pcfCount=4;
+const float totalTexels = (pcfCount* 2.0+1.0)*(pcfCount* 2.0+1.0);
+
+void main(void){
+
+	float texelSize = 1.0 / mapSize;
+	float total = 0.0;
+	
+	for(int x = - pcfCount; x<pcfCount; x++){
+		for(int y = - pcfCount; y<pcfCount; y++){
+			float objectNearestLight = texture(shadowMap, shadowCoords.xy+vec2(x,y)*texelSize).r;
+			if(shadowCoords.z > objectNearestLight+0.004){
+				total+=1.0;
+			}
+		}	
+	}
+	total/= totalTexels;
+
+	
+	float lightFactor =1.0- (total * shadowCoords.w);
+
+	vec3 unitNormal = normalize(surfaceNormal);
+	vec3 unitVectorToCamera = normalize(toCameraVector);
+	
+	vec3 totalDiffuse = vec3(0.0);
+	vec3 totalSpecular = vec3(0.0);
+	
+	for(int i=0; i<maxLights;i++){
+	float distance = length(toLightVector[i]);
+	float attFactor = attenuation[i].x + (attenuation[i].y * distance) +(attenuation[i].z * distance);
+	vec3 unitLightVector = normalize(toLightVector[i]);
+	float nDotl = dot(unitNormal,unitLightVector);
+	float brightness = max(nDotl,0.0);
+	if(celShading){
+	float level = floor(brightness * levels);
+	brightness = level/levels;
+	}
+	vec3 lightDirection = -unitLightVector;
+	vec3 reflectedLightDirection = reflect(lightDirection,unitNormal);
+	float specularFactor = dot(reflectedLightDirection , unitVectorToCamera);
+	specularFactor = max(specularFactor,0.0);
+	float dampedFactor = pow(specularFactor,shineDamper);
+	if(celShading){
+	float level = floor(dampedFactor * levels);
+	dampedFactor = level/levels;
+	}
+	totalDiffuse = totalDiffuse + (brightness * lightColour[i])/attFactor;
+	totalSpecular = totalSpecular + (dampedFactor * reflectivity * lightColour[i])/attFactor;
+	}
+	
+	totalDiffuse = max(totalDiffuse * lightFactor , 0.4);
+	
+	
+	vec4 textureColor = texture(modelTexture,pass_textureCoordinates);
+	if(textureColor.a<0.5){
+		discard;
+	}
+	out_BrightColor = vec4(0.0);
+	if(usesSpecularMap > 0.5){
+		vec4 mapData = texture(specularMap, pass_textureCoordinates);
+		totalSpecular *= mapData.r;
+		if(mapData.g > 0.5){
+			out_BrightColor = textureColor + vec4(totalSpecular,1.0)*mapData.g;
+			totalDiffuse = vec3(1.0);
+		}
+	}
+
+	out_Color =  vec4(totalDiffuse,1.0) * textureColor + vec4(totalSpecular,1.0);
+	if(isUnderWater == 1 && underwater){
+		out_Color = mix(vec4(underwaterColor,1.0),out_Color, visibility);
+	}else {
+		out_Color = mix(vec4(skyColor,1.0),out_Color, visibility);
+	}
+}

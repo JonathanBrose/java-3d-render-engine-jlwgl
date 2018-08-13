@@ -1,0 +1,99 @@
+#version 400 core
+
+in vec3 position;
+in vec2 textureCoordinates;
+in vec3 normal;
+
+const int maxLights=4;
+
+out vec2 pass_textureCoordinates;
+out vec3 surfaceNormal;
+out vec3 toLightVector[maxLights];
+out vec3 toCameraVector;
+out float visibility;
+out vec4 shadowCoords;
+out float isUnderWater;
+out vec4 clipSpace; 
+out float CausticsUnderwater;
+out float causticsDensity;
+
+
+uniform mat4 transformationMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 beamerViewMatrix;
+uniform vec3 lightPosition[maxLights];
+uniform vec4 plane;
+uniform mat4 toShadowMapSpace;
+uniform bool underwater;
+uniform float underwaterheight;
+uniform float underwaterDensity;
+uniform float underwaterGradient;
+uniform float refractRender;
+
+
+const float density = 0.004;
+const float gradient = 1.5;
+const float shadowDistance = 150.0;
+const float transitionDistance = 10.0;
+
+
+
+void main(void){
+	
+
+	vec4 worldPosition = transformationMatrix * vec4(position,1.0);
+	shadowCoords = toShadowMapSpace * worldPosition;
+	
+	gl_ClipDistance[0] = dot(worldPosition, plane);
+	
+	vec4 positionRelativeToCamera = viewMatrix * worldPosition;
+	gl_Position = projectionMatrix * positionRelativeToCamera;
+	
+	if(worldPosition.y < underwaterheight+10){
+		isUnderWater = 1;
+	}else {
+		isUnderWater = 0;
+	}
+		if(worldPosition.y < underwaterheight){
+			CausticsUnderwater = 1;
+			causticsDensity = 4 /((underwaterheight) - worldPosition.y)  ;
+			causticsDensity = clamp(causticsDensity, 0.5 ,1.0);
+		}else {
+			CausticsUnderwater = 0;
+		}
+		
+		
+	clipSpace = projectionMatrix * beamerViewMatrix * worldPosition;
+	pass_textureCoordinates = textureCoordinates ;
+	
+	surfaceNormal = (transformationMatrix * vec4(normal,0.0)).xyz;
+	for(int i =0; i<maxLights;i++){
+		toLightVector[i] = lightPosition[i] - worldPosition.xyz;
+	}
+	toCameraVector = (inverse(viewMatrix) * vec4(0.0,0.0,0.0,1.0)).xyz - worldPosition.xyz;
+		float distance = length(positionRelativeToCamera.xyz);
+		
+		
+			
+		if(underwater && isUnderWater == 1){
+			float dist = ((underwaterheight) - worldPosition.y);
+			if(dist < 0.0){
+				dist=0.0;
+			}
+			dist = clamp(dist, 0.0, 1.0);
+			visibility = exp(-pow((distance*underwaterDensity),underwaterGradient));
+			visibility = clamp(visibility*dist,0.0,1.0);
+		}else{
+			visibility = exp(-pow((distance*density),gradient));
+			visibility = clamp(visibility,0.0,1.0);
+		}
+		
+		
+	distance = distance - (shadowDistance - transitionDistance);
+	distance = distance / transitionDistance;
+	shadowCoords.w = clamp(1.0 -distance,0.0,1.0);
+		
+	
+	
+}

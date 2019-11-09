@@ -130,7 +130,7 @@ public class Camera {
 	}
 	
 	private void calculatePitch(){
-		if(Mouse.isButtonDown(2) || Keyboard.isKeyDown(Keyboard.KEY_1)){
+		if(Mouse.isButtonDown(2) || Keyboard.isKeyDown(Keyboard.KEY_X)){
 			terrainHeight = getActiveTerrain(MainGameLoop.terrain, position.x, position.z).getHeightOfTerrain(position.x, position.z);
 			
 			minPitch = terrainHeight/distanceFromPlayer;

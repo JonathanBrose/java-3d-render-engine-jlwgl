@@ -16,7 +16,7 @@ public class DisplayManager {
 	
 	private static int WIDTH = 1280;
 	private static int HEIGHT = 720;
-	private static final int FPS_CAP = 120;
+	private static final int FPS_CAP = 60;
 	private static boolean full=false;
 	
 	private static long lastFrameTime;
@@ -44,7 +44,7 @@ public class DisplayManager {
 			}else{
 			Display.setDisplayMode(new DisplayMode(WIDTH,HEIGHT));
 			}
-			Display.create(new PixelFormat().withDepthBits(24), attribs);
+			Display.create(new PixelFormat().withDepthBits(24).withSamples(2), attribs);
 			Display.setTitle("Our First Display!");
 			GL11.glEnable(GL13.GL_MULTISAMPLE);
 		} catch (LWJGLException e) {

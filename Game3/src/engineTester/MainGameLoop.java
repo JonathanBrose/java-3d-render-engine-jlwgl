@@ -63,7 +63,6 @@ import gui.GuiRenderer;
 import gui.GuiTexture;
 
 public class MainGameLoop {
-
 	static float x;
 	static float z;
 	static float y;
@@ -569,9 +568,11 @@ public class MainGameLoop {
 		ts.setCelShading(celShading);
 		ts.stop();
 		StaticShader ss = MasterRenderer.getShader();
+		//1938
 		ss.start();
 		ss.setCelShading(celShading);
 		ss.stop();
+		//1945
 		NormalMappingShader nms = MasterRenderer.getNormalMapRenderer()
 				.getShader();
 		nms.start();
